@@ -5,7 +5,8 @@ pub mod response;
 pub use self::{
     header::{key::Key, value::Value},
     request::{Request, RequestMethod},
-    response::Response,
+    // Traits have to be reexported due to compatibility
+    response::{Response, Byteable, ResponseCode},
 };
 
 #[derive(PartialEq, Debug)]
