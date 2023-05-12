@@ -1,5 +1,9 @@
-use std::collections::{hash_map::Entry, HashMap};
-use std::marker::PhantomData;
+use std::{
+    collections::{hash_map::Entry, HashMap},
+    error::Error,
+    marker::PhantomData,
+    fmt::{Display, Formatter, Result as FmtResult},
+};
 
 use crate::header::{key::Key, value::Value, HeaderError};
 
@@ -12,13 +16,13 @@ pub struct Response<S: State> {
 }
 
 impl Response<NeedsHeaders> {
-    pub fn new(code: u32) -> Self {
-        Response {
+    pub fn new(code: u32) -> Result<Self, InvalidCode> {
+        Ok(Response {
             marker: PhantomData,
-            front_matter: format!("HTTP/1.1 {code} {}", standard_marker_from_code(code)),
+            front_matter: format!("HTTP/1.1 {code} {}", standard_phrase(code).ok_or(InvalidCode)?),
             body: vec![],
             headers: HashMap::new(),
-        }
+        })
     }
     pub fn body<B: Into<Vec<u8>>>(self, body: B) -> Response<NeedsMessage> {
         Response {
@@ -64,22 +68,83 @@ pub trait Byteable {
     fn into_bytes(self) -> Vec<u8>;
 }
 
-fn standard_marker_from_code(code: u32) -> &'static str {
+fn standard_phrase(code: u32) -> Option<&'static str> {
     match code {
-        100 => "CONTINUE",
+        100 => Some("CONTINUE"),
+        101 => Some("SWITCHING PROTOCOLS"),
+        103 => Some("EARLY HINTS"),
 
-        200 => "OK",
+        200 => Some("OK"),
+        201 => Some("CREATED"),
+        202 => Some("Accepted"),
+        203 => Some("NON-AUTHORITATIVE INFORMATION"),
+        204 => Some("NO CONTENT"),
+        205 => Some("RESET CONTENT"),
+        206 => Some("PARTIAL CONTENT"),
+        207 => Some("MULTI-STATUS"),
+        208 => Some("ALREADY REPORTED"),
+        209 => Some("IM USED"),
 
-        400 => "BAD REQUEST",
-        403 => "FORBIDDEN",
-        404 => "NOT FOUND",
-        405 => "METHOD NOT ALLOWED",
-        411 => "LENGTH REQUIRED",
-        413 => "PAYLOAD TOO LARGE",
+        300 => Some("MULTIPLE CHOICES"),
+        301 => Some("MOVED PERMANENTLY"),
+        302 => Some("FOUND"),
+        303 => Some("SEE OTHER"),
+        304 => Some("NOT MODIFIED"),
+        305 => Some("USE PROXY"),
+        307 => Some("TEMPORARY REDIRECT"),
+        308 => Some("PERMANENT REDIRECT"),
 
-        500 => "SERVER ERROR",
-        501 => "NOT IMPLEMENTED",
-        _ => todo!(),
+        400 => Some("BAD REQUEST"),
+        401 => Some("UNAUTHORIZED"),
+        402 => Some("PAYMENT REQUIRED"),
+        403 => Some("FORBIDDEN"),
+        404 => Some("NOT FOUND"),
+        405 => Some("METHOD NOT ALLOWED"),
+        406 => Some("NOT ACCCEPTABLE"),
+        407 => Some("PROXY AUTHENTICATION REQUIRED"),
+        408 => Some("REQUEST TIMEOUT"),
+        409 => Some("CONFLICT"),
+        410 => Some("GONE"),
+        411 => Some("LENGTH REQUIRED"),
+        412 => Some("PRECONDITON FAILED"),
+        413 => Some("PAYLOAD TOO LARGE"),
+        414 => Some("URI TOO LONG"),
+        415 => Some("UNSUPPORTED MEDIA TYPE"),
+        416 => Some("RANGE NOT SATISFIABLE"),
+        417 => Some("EXPECTATION FAILED"),
+        418 => Some("IM A TEAPOT"),
+        421 => Some("MISDIRECTED REQUEST"),
+        422 => Some("UNPROCESSABLE ENTITY"),
+        423 => Some("LOCKED"),
+        424 => Some("FAILED DEPENDENCY"),
+        425 => Some("TOO EARLY"),
+        426 => Some("UPGRADE REQUIRED"),
+        428 => Some("PRECONDITION REQUIRED"),
+        429 => Some("TOO MANY REQUESTS"),
+        431 => Some("REQUEST HEADER FIELDS TOO LARGE"),
+        451 => Some("UNAVAILABLE FOR LEGAL REASONS"),
+
+        500 => Some("SERVER ERROR"),
+        501 => Some("NOT IMPLEMENTED"),
+        502 => Some("BAD GATEWAY"),
+        503 => Some("SERVICE UNAVAILABLE"),
+        504 => Some("GATEWAY TIMEOUT"),
+        505 => Some("HTTP VERSION NOT SUPPORTED"),
+        506 => Some("VARIANT ALSO NEGOTIATES"),
+        507 => Some("INSUFFICIENT STORAGE"),
+        508 => Some("LOOP DETECTED"),
+        510 => Some("NOT EXTENDED"),
+        511 => Some("NETWORK AUTHENTICATION REQUIRED"),
+        _ => None,
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct InvalidCode;
+impl Error for InvalidCode {}
+impl Display for InvalidCode {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "invalid response code")
     }
 }
 
@@ -99,23 +164,23 @@ mod tests {
 
     #[test]
     fn response_title_bytes() {
-        let result = Response::new(200).into_bytes();
+        let result = Response::new(200).unwrap().into_bytes();
         assert_eq!(result, b"HTTP/1.1 200 OK\r\n\r\n");
     }
     #[test]
     fn response_body_bytes() {
-        let result = Response::new(200).body("SomeBODY");
+        let result = Response::new(200).unwrap().body("SomeBODY");
         assert_eq!(result.into_bytes(), b"HTTP/1.1 200 OK\r\n\r\nSomeBODY");
     }
     #[test]
     fn response_header_bytes() {
-        let result = Response::new(200).header("hi", "its me").unwrap().body("someBODY");
+        let result = Response::new(200).unwrap().header("hi", "its me").unwrap().body("someBODY");
         assert_eq!(result.into_bytes(), b"HTTP/1.1 200 OK\r\nhi:its me\r\n\r\nsomeBODY");
     }
     #[test]
     // Header fields with different keys may appear in arbitrary order
     fn reponse_multiple_headers() {
-        let result = Response::new(200)
+        let result = Response::new(200).unwrap()
             .header("hey", "man").unwrap()
             .header("how", "are you").unwrap()
             .body("someBODY");
@@ -127,7 +192,7 @@ mod tests {
     }
     #[test]
     fn multiple_headers() -> Result<(), HeaderError> {
-        let result = Response::new(200)
+        let result = Response::new(200).unwrap()
             .header("stuff", "Aaron")?
             .header("STUFF", "Berta")?
             .header("sTuFf", "Charlie   ")?
@@ -145,7 +210,7 @@ mod tests {
     #[test]
     fn headers_trim_leading_whitespace() {
         let key = "some_header";
-        let r = Response::new(200);
+        let r = Response::new(200).unwrap();
         let result = r.clone().header(key, "no_whitespace").unwrap();
         let result2 = r.header(key, "   no_whitespace").unwrap();
         assert_eq!(result, result2);
@@ -153,14 +218,14 @@ mod tests {
     #[test]
     fn headers_trim_trailing_whitespace() {
         let key = "some_header";
-        let r = Response::new(200);
+        let r = Response::new(200).unwrap();
         let result = r.clone().header(key, "no_whitespace").unwrap();
         let result2 = r.header(key, "no_whitespace          ").unwrap();
         assert_eq!(result, result2);
     }
     #[test]
     fn header_cant_insert_empty() {
-        assert!(Response::new(200).header("stuff", "").is_err());
-        assert!(Response::new(200).header("", "stuff").is_err());
+        assert!(Response::new(200).unwrap().header("stuff", "").is_err());
+        assert!(Response::new(200).unwrap().header("", "stuff").is_err());
     }
 }
