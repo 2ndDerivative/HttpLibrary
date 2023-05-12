@@ -65,6 +65,7 @@ pub struct Response<S: State> {
     marker: std::marker::PhantomData<S>,
     front_matter: String,
     body: Vec<u8>,
+    headers: HashMap<String, String>,
 }
 
 impl Response<NeedsHeaders> {
@@ -74,17 +75,33 @@ impl Response<NeedsHeaders> {
             front_matter: format!("HTTP/1.1 {code} {}", 
                 standard_marker_from_code(code)
             ),
-            body: vec![], 
+            body: vec![],
+            headers: HashMap::new(),
         }
     }
     pub fn body<B: Into<Vec<u8>>>(self, body: B) -> Response<NeedsMessage> {
-        Response { body: body.into(), marker: PhantomData, front_matter: self.front_matter }
+        Response { body: body.into(), marker: PhantomData, front_matter: self.front_matter, headers: self.headers }
+    }
+    pub fn header<K: AsRef<str>, V: AsRef<str>>(mut self, k: K, v: V) -> Self {
+        let (k, v) = (k.as_ref(), v.as_ref());
+        if !k.is_empty() && k.is_ascii() && v.is_ascii() {
+            self.headers.insert(k.to_lowercase(), v.trim_start().to_string());
+        } else {
+            panic!("Non-ascii header attempt!")
+        }
+        self
     }
 }
 
 impl<S: State> Byteable for Response<S> {
     fn into_bytes(self) -> Vec<u8> {
-        [self.front_matter.into_bytes(),"\r\n\r\n".into(), self.body].concat()
+        [self.front_matter.into_bytes(),
+        "\r\n".into(),
+        self.headers
+            .into_iter()
+            .map(|(k,v)|format!("{k}:{v}"))
+            .collect::<Vec<_>>()
+            .join("\r\n").into(), "\r\n".into(), self.body].concat()
     }
 }
 
