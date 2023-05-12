@@ -4,21 +4,21 @@ use std::marker::PhantomData;
 use std::str::FromStr;
 use std::error::Error;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Request {
     pub method: RequestMethod,
     pub path: String,
     pub headers: HashMap<String, String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum RequestMethod {
     Get,
     Delete,
     Put
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum RequestParseError {
     EmptyRequest,
     NoMethod,
