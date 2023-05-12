@@ -3,9 +3,9 @@ pub mod request;
 pub mod response;
 
 pub use self::{
-    header::{key::Key, value::Value, HeaderError},
-    request::{Request, RequestMethod, RequestParseError},
-    response::{Byteable, Response},
+    header::{key::Key, value::Value},
+    request::{Request, RequestMethod},
+    response::Response,
 };
 
 #[derive(PartialEq, Debug)]
