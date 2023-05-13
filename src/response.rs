@@ -3,6 +3,7 @@ use std::{
     error::Error,
     marker::PhantomData,
     fmt::{Display, Formatter, Result as FmtResult},
+    string::FromUtf8Error,
 };
 
 use crate::header::{key::Key, value::Value, HeaderError};
@@ -328,6 +329,13 @@ impl Byteable for Response {
     }
 }
 
+impl TryFrom<Response> for String {
+    type Error = FromUtf8Error;
+    fn try_from(value: Response) -> Result<Self, Self::Error> {
+        String::from_utf8(value.into_bytes())
+    }
+}
+
 
 impl TryFrom<u16> for Response {
     type Error = InvalidCode;
@@ -465,6 +473,13 @@ impl<S: State> Byteable for ResponseBuilder<S> {
             self.body,
         ]
         .concat()
+    }
+}
+
+impl<S: State> TryFrom<ResponseBuilder<S>> for String {
+    type Error = FromUtf8Error;
+    fn try_from(value: ResponseBuilder<S>) -> Result<Self, Self::Error> {
+        String::from_utf8(value.into_bytes())
     }
 }
 
