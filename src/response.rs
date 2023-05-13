@@ -292,7 +292,7 @@ impl Response {
     pub fn new(code: u16) -> Result<Self, InvalidCode> {
         Response::try_from(code)
     }
-    pub fn body<B: Into<Vec<u8>>>(self, body: B) -> ResponseBuilder<NeedsMessage> {
+    pub fn body<B: Into<Vec<u8>>>(self, body: B) -> ResponseBuilder<Complete> {
         ResponseBuilder {
             response: self,
             marker: PhantomData,
@@ -300,7 +300,7 @@ impl Response {
             headers: HashMap::new(),
         }
     }
-    pub fn header<K: AsRef<str>, V: AsRef<str>>(self, k: K, v: V) -> Result<ResponseBuilder<NeedsHeaders>, HeaderError> {
+    pub fn header<K: AsRef<str>, V: AsRef<str>>(self, k: K, v: V) -> Result<ResponseBuilder<Incomplete>, HeaderError> {
         let (k, v) = (k.as_ref(), v.as_ref());
         let headers = HashMap::from([(Key::new(k)?, Value::new(v)?)]);
         Ok(ResponseBuilder {
@@ -310,7 +310,7 @@ impl Response {
             headers
         })
     }
-    fn response_header(self, major_version: u64, minor_version: u64) -> String {
+    fn response_header(&self, major_version: u64, minor_version: u64) -> String {
         format!("HTTP/{}.{} {} {}", major_version, minor_version, self.clone() as u16, self.standard_phrase())
     }
 }
@@ -323,19 +323,27 @@ impl ResponseCode for Response {
 
 impl Byteable for Response {
     fn into_bytes(self) -> Vec<u8> {
-        let mut rh = self.response_header(1, 1);
-        rh.push_str("\r\n\r\n");
-        rh.into()
+        String::from(self).into()
     }
 }
 
-impl TryFrom<Response> for String {
-    type Error = FromUtf8Error;
-    fn try_from(value: Response) -> Result<Self, Self::Error> {
-        String::from_utf8(value.into_bytes())
+impl From<Response> for String {
+    fn from(value: Response) -> Self {
+        format!("{value}")
     }
 }
 
+impl Display for Response {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "{}\r\n\r\n", self.response_header(1, 1))
+    }
+}
+
+impl From<Response> for Vec<u8> {
+    fn from(value: Response) -> Self {
+        value.into_bytes()
+    }
+}
 
 impl TryFrom<u16> for Response {
     type Error = InvalidCode;
@@ -437,8 +445,8 @@ impl<S: State> ResponseCode for ResponseBuilder<S> {
     }
 }
 
-impl ResponseBuilder<NeedsHeaders> {
-    pub fn body<B: Into<Vec<u8>>>(self , body: B) -> ResponseBuilder<NeedsMessage> {
+impl ResponseBuilder<Incomplete> {
+    pub fn body<B: Into<Vec<u8>>>(self , body: B) -> ResponseBuilder<Complete> {
         let body = body.into();
         ResponseBuilder {
             response: self.response,
@@ -447,7 +455,7 @@ impl ResponseBuilder<NeedsHeaders> {
             headers: self.headers,
         }
     }
-    pub fn header<K: AsRef<str>, V: AsRef<str>>(mut self, k: K, v: V) -> Result<ResponseBuilder<NeedsHeaders>, HeaderError> {
+    pub fn header<K: AsRef<str>, V: AsRef<str>>(mut self, k: K, v: V) -> Result<ResponseBuilder<Incomplete>, HeaderError> {
         let k = Key::new(k.as_ref())?;
         match self.headers.entry(k) {
             Entry::Occupied(mut e) => {e.get_mut().append(v.as_ref())?;},
@@ -480,6 +488,44 @@ impl<S: State> TryFrom<ResponseBuilder<S>> for String {
     type Error = FromUtf8Error;
     fn try_from(value: ResponseBuilder<S>) -> Result<Self, Self::Error> {
         String::from_utf8(value.into_bytes())
+    }
+}
+
+impl<S: State> From<ResponseBuilder<S>> for Vec<u8> {
+    fn from(value: ResponseBuilder<S>) -> Self {
+        value.into_bytes()
+    }
+}
+
+impl Display for ResponseBuilder<Incomplete> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "{}\r\n\r\n", 
+            std::iter::once(
+                self.response.response_header(1, 1)
+            ).chain( 
+                self.headers.iter()
+                    .map(|(k, v)| format!("{k}:{v}"))
+            ).collect::<Vec<_>>().join("\r\n"))
+    }
+}
+impl Display for ResponseBuilder<Complete> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "{}\r\n\r\n{}",
+            std::iter::once(
+                self.response.response_header(1, 1)
+            ).chain( 
+                self.headers.iter()
+                    .map(|(k, v)| format!("{k}:{v}"))
+            ).collect::<Vec<_>>().join("\r\n"),
+            String::from_utf8(self.body.clone()).unwrap_or_else(|_| {
+                format!("{:?}", self.body)
+            }))
+    }
+}
+
+impl From<ResponseBuilder<Incomplete>> for ResponseBuilder<Complete> {
+    fn from(value: ResponseBuilder<Incomplete>) -> Self {
+        value.body("")
     }
 }
 
@@ -557,11 +603,11 @@ pub fn standard_phrase(code: u16) -> Option<&'static str> {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum NeedsHeaders {}
-impl State for NeedsHeaders {}
+pub enum Incomplete {}
+impl State for Incomplete {}
 #[derive(Debug, PartialEq, Clone)]
-pub enum NeedsMessage {}
-impl State for NeedsMessage {}
+pub enum Complete {}
+impl State for Complete {}
 pub trait State {}
 
 #[cfg(test)]
@@ -634,5 +680,42 @@ mod tests {
     fn header_cant_insert_empty() {
         assert!(Response::Ok.header("stuff", "").is_err());
         assert!(Response::Ok.header("", "stuff").is_err());
+    }
+    #[test]
+    fn try_into_string() -> Result<(), Box<dyn std::error::Error>>{
+        let response = Response::new(404)?;
+        let response = response
+            .header("your", "mom")?
+            .body("is great");
+        let string: String = response.try_into()?;
+        assert_eq!(string,
+            "HTTP/1.1 404 NOT FOUND\r\n\
+            your:mom\r\n\r\n\
+            is great".to_owned());
+        Ok(())
+    }
+    #[test]
+    fn complete_correct_string() {
+        let test_string ="HTTP/1.1 400 BAD REQUEST\r\n\
+        header:stuff\r\n\r\n".to_owned();
+        let raw = Response::BadRequest
+            .header("header","stuff")
+            .unwrap();
+        assert_eq!(raw.to_string(), test_string);
+        assert_eq!(raw.body("").to_string(), test_string)
+    }
+    #[test]
+    fn print_invalid_utf8() {
+        let test_string = "HTTP/1.1 400 BAD REQUEST\r\n\r\n\
+        [14, 147, 94]".to_owned();
+        let response = Response::BadRequest
+            .body(vec![14, 147, 94]);
+        assert_eq!(test_string, response.to_string());
+    }
+    #[test]
+    fn print_no_header_only_two_rns() {
+        let test_string = "HTTP/1.1 418 IM A TEAPOT\r\n\r\n".to_owned();
+        let response = Response::ImATeapot;
+        assert_eq!(test_string, response.to_string())
     }
 }
