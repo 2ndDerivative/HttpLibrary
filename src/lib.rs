@@ -11,6 +11,6 @@ pub use self::{
 
 #[derive(PartialEq, Debug)]
 pub struct Version {
-    major: u64,
-    minor: u64,
+    pub major: u64,
+    pub minor: u64,
 }

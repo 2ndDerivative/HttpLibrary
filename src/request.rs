@@ -11,6 +11,35 @@ use crate::{
 };
 
 #[derive(Debug, PartialEq)]
+/// The overall HTTP request struct.
+/// 
+/// # Examples
+/// 
+/// ```
+/// # use heggemann_http::{
+/// #    Request,
+/// #    RequestMethod,
+/// #    Version,
+/// #    Value,
+/// # };
+/// let input = 
+/// "GET /my/path HTTP/1.1\r\n\
+/// Content-Length: 50\r\n\
+/// Authorization: I have none\r\n
+/// \r\n
+/// This is somebody's body";
+/// let request = input.parse::<Request>().unwrap();
+/// 
+/// assert_eq!(request.method, RequestMethod::Get);
+/// assert_eq!(request.path, String::from("/my/path"));
+/// 
+/// assert_eq!(request.version, Version {minor: 1, major: 1});
+/// 
+/// assert_eq!(request.headers.get("content-length").unwrap(), "50");
+/// assert_eq!(request.headers.get("authorization").unwrap(), "I have none");
+/// ```
+/// 
+/// Header keys have to be compared in lowercase. (Work in progress)
 pub struct Request {
     pub method: RequestMethod,
     pub path: String,
@@ -19,6 +48,9 @@ pub struct Request {
 }
 
 #[derive(Debug, PartialEq)]
+/// Enumeration of the standardized Request methods.
+/// 
+/// Safety and Idempotency defined by the HTTP/1.1 standard.
 pub enum RequestMethod {
     Get,
     Head,
@@ -31,15 +63,26 @@ pub enum RequestMethod {
 }
 
 impl RequestMethod {
+    /// Safe methods are not supposed to mutate state on the server.
+    /// This may be used to force a library or binary to take an
+    /// immutable reference to some struct when sent a safe method.
     pub fn is_safe(&self) -> bool {
         matches!(self, Self::Get | Self::Head | Self::Options | Self::Trace)
     }
+    /// An idempotent request is supposed to be non-repeatable.
+    /// This includes all **safe** methods as well as `Put` and `Delete`,
+    /// which are both supposed to represent only shifting between a
+    /// resource existing and non existing, not incrementing or decrementing
+    /// some value. 
     pub fn is_idempotent(&self) -> bool {
         self.is_safe() || matches!(self, Self::Put | Self::Delete)
     }
 }
 
 #[derive(Debug, PartialEq)]
+/// Ascii-uppercase is not technically a must for new HTTP methods,
+/// but all the standardized methods are by said standard all
+/// uppercased.
 pub enum MethodParseError {
     NotAsciiUppercase,
     NotAMethod,
@@ -80,12 +123,21 @@ impl FromStr for RequestMethod {
 
 #[derive(Debug, PartialEq)]
 pub enum RequestParseError {
+    /// The request is an empty or whitespace-only string
     EmptyRequest,
+    /// The request has no method given
     NoMethod,
+    /// The request has no path or one unparseable as one
     NoPath,
+    /// The request lacks the standardized version HTTP word
     NoHttpWord,
+    /// The method has not been recognized. A server having this error should 
+    /// return a [501][crate::Response::NotImplemented]
     MethodNotRecognized(MethodParseError),
+    /// A header is not compliant with header syntax
     BadHeader(HeaderError),
+    /// The version word in the (`HTTP/[major].[minor]`)-term is
+    /// not parseable as such
     InvalidVersion,
 }
 impl Error for RequestParseError {}

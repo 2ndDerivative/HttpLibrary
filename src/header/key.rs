@@ -10,10 +10,16 @@ use super::HeaderError;
 /// Struct with all requirements encoded.
 /// Always stores as its ascii lowercase item.
 /// Can't contain the empty string.
+/// Equals with any case of the same characters.
+///  
+/// Can be dereferenced back into a `String` and `&str`
+/// Likely to be replaced by a tuple struct.
 pub struct Key {
     value: String,
 }
 impl Key {
+    /// Verifies compliance with the HTTP/1.1 header
+    /// standard, ensuring that [Key] always matches it.
     pub fn new<S: AsRef<str>>(s: S) -> Result<Self, HeaderError> {
         let s = s.as_ref();
         if !s.is_ascii() || s.is_empty() {

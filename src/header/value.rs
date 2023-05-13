@@ -6,12 +6,22 @@ use std::{
 
 use super::HeaderError;
 
+/// Encodes valid header values that fit the standard requirements:
+/// - No empty string
+/// - No non-ascii characters
+/// - no \r, \n or \0 characters
+/// - Removing leading and trailing whitespace
+///
+///   
+/// Can be dereferenced back into a `String` and `&str`
+/// Likely to be replaced by a tuple struct.
 #[derive(PartialEq, Clone, Debug, Eq)]
 pub struct Value {
     value: String,
 }
 impl Value {
-    pub fn new<S: AsRef<str>>(s: S) -> Result<Self, HeaderError> {
+    /// Validates the constraints on strings by the standard.
+    pub(crate) fn new<S: AsRef<str>>(s: S) -> Result<Self, HeaderError> {
         let s = s.as_ref().trim();
         if !s.is_ascii() || s.is_empty() || s.contains(['\r', '\n', '\0']) {
             Err(HeaderError)
@@ -21,7 +31,11 @@ impl Value {
             })
         }
     }
-    pub fn append<S: AsRef<str>>(&mut self, s: S) -> Result<(), HeaderError> {
+    /// Concatenates the current value with a new value with the same key
+    /// According to the standard multiple headers like
+    /// `head: foo` and `head: bar` are supposed to be parsed like
+    /// a single `head: foo,bar`. 
+    pub(crate) fn append<S: AsRef<str>>(&mut self, s: S) -> Result<(), HeaderError> {
         let cleaned = Self::new(s)?;
         self.value.push_str(&format!(",{}", cleaned.value));
         Ok(())
