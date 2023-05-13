@@ -20,7 +20,7 @@ use crate::{
 /// #    Request,
 /// #    RequestMethod,
 /// #    Version,
-/// #    Value,
+/// #    header::Value,
 /// # };
 /// let input = 
 /// "GET /my/path HTTP/1.1\r\n\
@@ -201,8 +201,8 @@ impl FromStr for Request {
                     return h
                 };
                 let mut parts = new.split(':');
-                let key = Key::new(parts.next().ok_or(HeaderError)?)?;
-                let value = parts.next().ok_or(HeaderError)?;
+                let key = Key::new(parts.next().ok_or(HeaderError::MissingKey)?)?;
+                let value = parts.next().ok_or(HeaderError::MissingValue)?;
 
                 match h.entry(key) {
                     Entry::Occupied(mut x) => x.get_mut().append(value)?,
