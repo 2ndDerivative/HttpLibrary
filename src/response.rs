@@ -497,18 +497,7 @@ impl<S: State> From<ResponseBuilder<S>> for Vec<u8> {
     }
 }
 
-impl Display for ResponseBuilder<Incomplete> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "{}\r\n\r\n", 
-            std::iter::once(
-                self.response.response_header(1, 1)
-            ).chain( 
-                self.headers.iter()
-                    .map(|(k, v)| format!("{k}:{v}"))
-            ).collect::<Vec<_>>().join("\r\n"))
-    }
-}
-impl Display for ResponseBuilder<Complete> {
+impl<S: State> Display for ResponseBuilder<S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(f, "{}\r\n\r\n{}",
             std::iter::once(
