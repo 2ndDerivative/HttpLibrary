@@ -33,7 +33,7 @@ use crate::{
 /// assert_eq!(request.method, RequestMethod::Get);
 /// assert_eq!(request.path, String::from("/my/path"));
 /// 
-/// assert_eq!(request.version, Version {minor: 1, major: 1});
+/// assert_eq!(request.version, Version (1, 1));
 /// 
 /// assert_eq!(request.headers.get("content-length").unwrap(), "50");
 /// assert_eq!(request.headers.get("authorization").unwrap(), "I have none");
@@ -188,10 +188,7 @@ impl FromStr for Request {
             .map(|x| x.split('.').map(|x| x.parse::<u64>()).collect::<Vec<_>>())
             .as_deref()
         {
-            Some([Ok(major), Ok(minor)]) => Version {
-                major: *major,
-                minor: *minor,
-            },
+            Some([Ok(major), Ok(minor)]) => Version(*major, *minor),
             _ => return Err(RequestParseError::InvalidVersion),
         };
         let headers = lines.take_while(|&l| !l.is_empty()).fold(
@@ -234,7 +231,7 @@ mod tests {
             request,
             Request {
                 method: RequestMethod::Get,
-                version: Version { major: 1, minor: 1 },
+                version: Version (1, 1),
                 ..
             }
         ))
@@ -245,7 +242,7 @@ mod tests {
         assert!(matches!(
             request,
             Request {
-                version: Version { major: 3, minor: 0 },
+                version: Version (3, 0),
                 ..
             }
         ))

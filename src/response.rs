@@ -6,11 +6,13 @@ use std::{
     string::FromUtf8Error,
 };
 
-use crate::header::{key::Key, value::Value, HeaderError};
+use crate::{
+    header::{key::Key, value::Value, HeaderError},
+    Version
+};
 
 pub trait ResponseCode {
     fn code(&self) -> u16;
-
     fn standard_phrase(&self) -> &'static str{
         standard_phrase(self.code()).unwrap()
     }
@@ -18,9 +20,44 @@ pub trait ResponseCode {
 
 pub trait Byteable {
     fn into_bytes(self) -> Vec<u8>;
+    fn max_version(&self) -> Version;
+}
+
+impl<T: Byteable + ResponseCode> CanBePrinted for T {}
+
+trait CanBePrinted: Byteable + ResponseCode {
+    fn response_header(&self) -> String {
+        format!("HTTP/{}.{} {} {}", 
+            self.max_version().0,
+            self.max_version().1,
+            self.code(),
+            self.standard_phrase())
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
+/// Standard HTTP Response struct
+/// write in raw bytes using `into_bytes()`, as the HTTP standard does not
+/// require valid UTF response bodies.
+/// 
+/// # Examples
+/// ```
+/// # use heggemann_http::{
+/// #     Response,
+/// #     Byteable
+/// # };
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let res = dbg!(Response::Ok
+///     .header("Host", "github.com:80")?
+///     .body("this is some body"));
+/// dbg!(res.max_version());
+/// assert_eq!(res.to_string(),
+///     "HTTP/1.1 200 OK\r\n\
+///     host:github.com:80\r\n\r\n\
+///     this is some body");
+/// # Ok(())
+/// # }
+/// ```
 pub enum Response{
     /// ## 100 CONTINUE
     /// The server has received the request headers and the client should proceed to send
@@ -310,9 +347,6 @@ impl Response {
             headers
         })
     }
-    fn response_header(&self, major_version: u64, minor_version: u64) -> String {
-        format!("HTTP/{}.{} {} {}", major_version, minor_version, self.clone() as u16, self.standard_phrase())
-    }
 }
 
 impl ResponseCode for Response {
@@ -325,6 +359,9 @@ impl Byteable for Response {
     fn into_bytes(self) -> Vec<u8> {
         String::from(self).into()
     }
+    fn max_version(&self) -> Version {
+        Version (1, 0)
+    }
 }
 
 impl From<Response> for String {
@@ -335,7 +372,7 @@ impl From<Response> for String {
 
 impl Display for Response {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "{}\r\n\r\n", self.response_header(1, 1))
+        write!(f, "{}\r\n\r\n", self.response_header())
     }
 }
 
@@ -441,7 +478,7 @@ pub struct ResponseBuilder<S: State> {
 
 impl<S: State> ResponseCode for ResponseBuilder<S> {
     fn code(&self) -> u16 {
-        self.response.clone() as u16
+        self.response.code()
     }
 }
 
@@ -469,7 +506,7 @@ impl<S: State> Byteable for ResponseBuilder<S> {
     fn into_bytes(self) -> Vec<u8> {
         [
             std::iter::once(
-                self.response.response_header(1, 1)
+                self.response_header()
             ).chain(
                 self.headers
                     .into_iter()
@@ -481,6 +518,14 @@ impl<S: State> Byteable for ResponseBuilder<S> {
             self.body,
         ]
         .concat()
+    }
+    fn max_version(&self) -> Version {
+        let k = Key::new("host").unwrap();
+        if self.headers.contains_key(&k) {
+            Version(1,1)
+        } else {
+            Version(1,0)
+        }
     }
 }
 
@@ -501,7 +546,7 @@ impl<S: State> Display for ResponseBuilder<S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(f, "{}\r\n\r\n{}",
             std::iter::once(
-                self.response.response_header(1, 1)
+                self.response_header()
             ).chain( 
                 self.headers.iter()
                     .map(|(k, v)| format!("{k}:{v}"))
@@ -607,17 +652,17 @@ mod tests {
     #[test]
     fn response_title_bytes() {
         let result = Response::Ok.into_bytes();
-        assert_eq!(result, b"HTTP/1.1 200 OK\r\n\r\n");
+        assert_eq!(result, b"HTTP/1.0 200 OK\r\n\r\n");
     }
     #[test]
     fn response_body_bytes() {
         let result = Response::Ok.body("SomeBODY");
-        assert_eq!(result.into_bytes(), b"HTTP/1.1 200 OK\r\n\r\nSomeBODY");
+        assert_eq!(result.into_bytes(), b"HTTP/1.0 200 OK\r\n\r\nSomeBODY");
     }
     #[test]
     fn response_header_bytes() {
         let result = Response::Ok.header("hi", "its me").unwrap().body("someBODY");
-        assert_eq!(result.into_bytes(), b"HTTP/1.1 200 OK\r\nhi:its me\r\n\r\nsomeBODY");
+        assert_eq!(result.into_bytes(), b"HTTP/1.0 200 OK\r\nhi:its me\r\n\r\nsomeBODY");
     }
     #[test]
     // Header fields with different keys may appear in arbitrary order
@@ -627,9 +672,9 @@ mod tests {
             .header("how", "are you").unwrap()
             .body("someBODY");
         assert!(result.clone().into_bytes()
-            == b"HTTP/1.1 200 OK\r\nhey:man\r\nhow:are you\r\n\r\nsomeBODY"
+            == b"HTTP/1.0 200 OK\r\nhey:man\r\nhow:are you\r\n\r\nsomeBODY"
             || result.into_bytes()
-            == b"HTTP/1.1 200 OK\r\nhow:are you\r\nhey:man\r\n\r\nsomeBODY"
+            == b"HTTP/1.0 200 OK\r\nhow:are you\r\nhey:man\r\n\r\nsomeBODY"
         )
     }
     #[test]
@@ -678,14 +723,14 @@ mod tests {
             .body("is great");
         let string: String = response.try_into()?;
         assert_eq!(string,
-            "HTTP/1.1 404 NOT FOUND\r\n\
+            "HTTP/1.0 404 NOT FOUND\r\n\
             your:mom\r\n\r\n\
             is great".to_owned());
         Ok(())
     }
     #[test]
     fn complete_correct_string() {
-        let test_string ="HTTP/1.1 400 BAD REQUEST\r\n\
+        let test_string ="HTTP/1.0 400 BAD REQUEST\r\n\
         header:stuff\r\n\r\n".to_owned();
         let raw = Response::BadRequest
             .header("header","stuff")
@@ -695,7 +740,7 @@ mod tests {
     }
     #[test]
     fn print_invalid_utf8() {
-        let test_string = "HTTP/1.1 400 BAD REQUEST\r\n\r\n\
+        let test_string = "HTTP/1.0 400 BAD REQUEST\r\n\r\n\
         [14, 147, 94]".to_owned();
         let response = Response::BadRequest
             .body(vec![14, 147, 94]);
@@ -703,8 +748,19 @@ mod tests {
     }
     #[test]
     fn print_no_header_only_two_rns() {
-        let test_string = "HTTP/1.1 418 IM A TEAPOT\r\n\r\n".to_owned();
+        let test_string = "HTTP/1.0 418 IM A TEAPOT\r\n\r\n".to_owned();
         let response = Response::ImATeapot;
         assert_eq!(test_string, response.to_string())
+    }
+    #[test]
+    fn version_host_key() {
+        let res = Response::Ok
+            .header("Host", "github.com").unwrap();
+        assert_eq!(res.max_version(), Version(1,1));
+    }
+    #[test]
+    fn version_no_host_key() {
+        let res = Response::Ok;
+        assert_eq!(res.max_version(), Version(1,0));
     }
 }
