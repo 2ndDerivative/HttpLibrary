@@ -125,12 +125,10 @@ impl FromStr for RequestMethod {
 pub enum RequestParseError {
     /// The request is an empty or whitespace-only string
     EmptyRequest,
-    /// The request has no method given
-    NoMethod,
-    /// The request has no path or one unparseable as one
-    NoPath,
-    /// The request lacks the standardized version HTTP word
-    NoHttpWord,
+    /// The request is missing any of `method request-target HTTP-version`
+    MissingStartlineElements,
+    /// The third word in the start line does not start with "HTTP/"
+    InvalidHttpWord,
     /// The method has not been recognized. A server having this error should
     /// return a [501][crate::Response::NotImplemented]
     MethodNotRecognized(MethodParseError),
@@ -148,9 +146,8 @@ impl Display for RequestParseError {
             "{}",
             match self {
                 Self::EmptyRequest => "empty string".to_owned(),
-                Self::NoMethod => "no method".to_owned(),
-                Self::NoPath => "no path".to_owned(),
-                Self::NoHttpWord => "no version".to_owned(),
+                Self::MissingStartlineElements => "request is missing any of method request-target HTTP-version".to_owned(),
+                Self::InvalidHttpWord => "start line does not end with a HTTP/.. version string".to_owned(),
                 Self::MethodNotRecognized(e) => format!("method not recognized: {}", e),
                 Self::BadHeader(_) => "header invalid".to_owned(),
                 Self::InvalidVersion => "version invalid".to_owned(),
@@ -175,25 +172,25 @@ impl FromStr for Request {
         let mut lines = s.lines();
         // Starting with a CRLF should be ignored and skipped
         // according to specification HTTP/1.1 paragraph 2.2
-        let mut firstline = match lines.next() {
+        let firstline = match lines.next() {
             Some("") => lines.next().ok_or(RequestParseError::EmptyRequest)?,
             None => {return Err(RequestParseError::EmptyRequest)}
             Some(x) => x
-        }.split_whitespace();
-        let method_word = firstline.next().ok_or(RequestParseError::NoMethod)?;
-        let path = firstline
-            .next()
-            .ok_or(RequestParseError::NoPath)?
-            .to_string();
-        let http_word = firstline.next().ok_or(RequestParseError::NoHttpWord)?;
-        let version = match http_word
-            .strip_prefix("HTTP/")
-            .map(|x| x.split('.').map(|x| x.parse::<u64>()).collect::<Vec<_>>())
-            .as_deref()
-        {
-            Some([Ok(major), Ok(minor)]) => Version(*major, *minor),
-            _ => return Err(RequestParseError::InvalidVersion),
+        }.split_whitespace().collect::<Vec<_>>();
+        let (method_word, path, http_word) = match firstline[..3] {
+            [a, b, c] => (a, b.to_string(), c),
+            _ => return Err(RequestParseError::MissingStartlineElements),
         };
+
+        let version = http_word
+            .strip_prefix("HTTP/")
+            .ok_or(RequestParseError::InvalidHttpWord)?
+            .split_once('.')
+            .and_then(|(ma, mi)| {
+                Some(Version(ma.parse().ok()?, mi.parse().ok()?))
+            })
+            .ok_or(RequestParseError::InvalidVersion)?;
+
         let headers = lines.take_while(|&l| !l.is_empty()).fold(
             Ok(HashMap::new()),
             |h: Result<HashMap<Key, Value>, HeaderError>, new| {
