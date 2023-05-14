@@ -5,3 +5,5 @@ Checks for body in 1XX, 204 and 304
 Handle whitespace between request startline and headers
 
 Parse request bodies
+
+Parse as proxy vs parse as server (colon whitespace)
