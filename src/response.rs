@@ -20,6 +20,14 @@ pub trait ResponseType {
 /// Sets valid codes and standard phrases for ReponseType
 /// 
 /// **Non-implementable**
+/// 
+/// # Examples
+/// ```
+/// # use heggemann_http::{Code, Response};
+/// let res = Response::Ok;
+/// assert_eq!(res.code(), 200);
+/// assert_eq!(res.standard_phrase(), "OK");
+/// ```
 pub trait Code: ResponseType {
     fn code(&self) -> u16;
     fn standard_phrase(&self) -> &'static str;
