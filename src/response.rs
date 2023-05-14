@@ -26,10 +26,10 @@ pub trait IntoBytes {
     fn max_version(&self) -> Version;
 }
 
-impl<T: IntoBytes + ResponseCode> CanBePrinted for T {}
+impl<T: IntoBytes + ResponseCode> FirstLine for T {}
 
-trait CanBePrinted: IntoBytes + ResponseCode {
-    fn response_header(&self) -> String {
+trait FirstLine: IntoBytes + ResponseCode {
+    fn first_line(&self) -> String {
         format!(
             "HTTP/{}.{} {} {}",
             self.max_version().0,
@@ -381,7 +381,7 @@ impl From<Response> for String {
 
 impl Display for Response {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "{}\r\n\r\n", self.response_header())
+        write!(f, "{}\r\n\r\n", self.first_line())
     }
 }
 
@@ -522,7 +522,7 @@ impl ResponseBuilder<Incomplete> {
 impl<S: State> IntoBytes for ResponseBuilder<S> {
     fn into_bytes(self) -> Vec<u8> {
         [
-            std::iter::once(self.response_header())
+            std::iter::once(self.first_line())
                 .chain(self.headers.into_iter().map(|(k, v)| format!("{k}:{v}")))
                 .collect::<Vec<String>>()
                 .join("\r\n")
@@ -560,7 +560,7 @@ impl<S: State> Display for ResponseBuilder<S> {
         write!(
             f,
             "{}\r\n\r\n{}",
-            std::iter::once(self.response_header())
+            std::iter::once(self.first_line())
                 .chain(self.headers.iter().map(|(k, v)| format!("{k}:{v}")))
                 .collect::<Vec<_>>()
                 .join("\r\n"),
