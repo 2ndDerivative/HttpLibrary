@@ -89,6 +89,7 @@ mod tests {
         let in_front = Value::new("   some_text");
         let trailing = Value::new("some_text      ");
         let both = Value::new("     some_text   ");
+        assert!(none.is_ok());
         assert_eq!(none, in_front);
         assert_eq!(none, trailing);
         assert_eq!(none, both);
