@@ -46,6 +46,8 @@ impl<R: ResponseType> Code for R {
 }
 
 /// This object can be turned into a valid HTTP byte stream
+/// 
+/// `into_bytes()` guarantees proper formatting!
 pub trait IntoBytes {
     fn into_bytes(self) -> Vec<u8>;
     fn max_version(&self) -> Version;
