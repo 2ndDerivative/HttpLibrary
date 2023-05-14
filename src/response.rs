@@ -91,6 +91,7 @@ trait FirstLine: IntoBytes + Code {
 /// # }
 /// ```
 pub enum Response {
+    // 1XX Codes do not have a body!
     /// ## 100 CONTINUE
     /// The server has received the request headers and the client should proceed to send
     /// the request body (if a body needs to be sent).
@@ -127,8 +128,9 @@ pub enum Response {
     /// Successful on a method/resource with no content.
     NoContent = 204,
     /// ## 205 RESET CONTENT
-    /// The server processed the request and asks the user for resetting their view. No content
-    /// is returned.
+    /// The server processed the request and asks the user for resetting their view. 
+    /// 
+    /// **No content is returned.**
     ResetContent = 205,
     /// ## 206 PARTIAL CONTENT
     /// The server is delivering a part of the resource **because of a client range header**.
@@ -172,6 +174,8 @@ pub enum Response {
     /// the request headers `If-Modified-Since` or `If-None-Match`. In such case, there
     /// is no need to retransmit the resource since the client still has a previously-
     /// downloaded copy.
+    /// 
+    /// **does not include body**
     NotModified = 304,
     /// ## 305 USE PROXY
     /// The requested resource is available only through a proxy, the address for which is
