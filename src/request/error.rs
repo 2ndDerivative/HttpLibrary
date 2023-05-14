@@ -6,6 +6,16 @@ use std::{
 use crate::{header::{HeaderError, KeyError}, Response};
 
 #[derive(Debug, PartialEq)]
+/// Collects all Errors that may happen during request parsing.
+/// 
+/// Can include both incompliance with the standard and failed parsing from the servers side.
+/// 
+/// If standard-compliant return codes are intended, the `appropriate_reponse()` method on this
+/// type can return a response that the standard proscribes or strongly recommends for the kind of
+/// semantic or syntactic error that was found.
+/// 
+/// For the case that there is no standardized response, `appropriate_response()` returns an `Option`
+/// that should be handled.
 pub enum RequestParseError {
     /// The request is an empty or whitespace-only string
     EmptyRequest,
@@ -23,7 +33,8 @@ pub enum RequestParseError {
     InvalidVersion,
 }
 impl RequestParseError {
-    pub fn appropriate_reponse(&self) -> Option<Response> {
+    #[must_use]
+    pub fn appropriate_response(&self) -> Option<Response> {
         match self {
             Self::MethodNotRecognized(_) => Some(Response::NotImplemented),
             Self::BadHeader(HeaderError::Key(KeyError::ColonWhitespace)) => Some(Response::BadRequest),
@@ -89,6 +100,6 @@ mod tests {
     fn appropriate_reponse_method_not_recognized() {
         assert_eq!(RequestParseError::MethodNotRecognized(
             MethodParseError::NotAMethod
-        ).appropriate_reponse(), Some(Response::NotImplemented))
+        ).appropriate_response(), Some(Response::NotImplemented))
     }
 }
