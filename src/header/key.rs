@@ -21,8 +21,10 @@ impl Key {
             Err(KeyError::NonAsciiChars)
         } else if s.is_empty() {
             Err(KeyError::EmptyString)
-        } else if s.trim() != s {
-            Err(KeyError::HeaderNameWhitespace)
+        } else if s.trim_start() != s {
+            Err(KeyError::LeadingWhitespace)
+        } else if s.trim_end() != s {
+            Err(KeyError::ColonWhitespace)
         } else {
             Ok(Self(s.to_ascii_lowercase()))
         }
@@ -74,5 +76,9 @@ mod tests {
     #[test]
     fn refuse_whitespace_trailing() {
         assert!(Key::new("abc ").is_err());
+    }
+    #[test]
+    fn refuse_whitespace_leading() {
+        assert!(Key::new(" abc").is_err())
     }
 }

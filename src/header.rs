@@ -51,7 +51,9 @@ impl From<ValueError> for HeaderError {
 pub enum KeyError {
     NonAsciiChars,
     EmptyString,
-    HeaderNameWhitespace,
+    LeadingWhitespace,
+    // Strong security risk!
+    ColonWhitespace,
 }
 impl Error for KeyError {}
 impl Display for KeyError {
@@ -62,7 +64,8 @@ impl Display for KeyError {
             match self {
                 Self::NonAsciiChars => "non-ascii chars",
                 Self::EmptyString => "empty key",
-                Self::HeaderNameWhitespace => "leading or trailing whitespace",
+                Self::LeadingWhitespace => "leading whitespace",
+                Self::ColonWhitespace => "pre-colon whitespace",
             }
         )
     }

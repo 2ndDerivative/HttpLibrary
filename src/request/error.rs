@@ -3,7 +3,7 @@ use std::{
     fmt::{Display, Formatter, Result as FMTResult},
 };
 
-use crate::{header::HeaderError, Response};
+use crate::{header::{HeaderError, KeyError}, Response};
 
 #[derive(Debug, PartialEq)]
 pub enum RequestParseError {
@@ -26,6 +26,7 @@ impl RequestParseError {
     pub fn appropriate_reponse(&self) -> Option<Response> {
         match self {
             Self::MethodNotRecognized(_) => Some(Response::NotImplemented),
+            Self::BadHeader(HeaderError::Key(KeyError::ColonWhitespace)) => Some(Response::BadRequest),
             _ => None
         }
     }
