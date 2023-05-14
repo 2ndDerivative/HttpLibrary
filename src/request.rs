@@ -113,8 +113,8 @@ impl FromStr for Request {
             None => {return Err(RequestParseError::EmptyRequest)}
             Some(x) => x
         }.split_whitespace().collect::<Vec<_>>();
-        let (method_word, path, http_word) = match firstline[..3] {
-            [a, b, c] => (a, b.to_string(), c),
+        let (method, path, http_word) = match firstline[..3] {
+            [a, b, c] => (a.parse()?, b.to_string(), c),
             _ => return Err(RequestParseError::MissingStartlineElements),
         };
 
@@ -147,7 +147,6 @@ impl FromStr for Request {
                 Ok(h)
             },
         )?;
-        let method = method_word.parse()?;
         Ok(Request {
             method,
             path,
