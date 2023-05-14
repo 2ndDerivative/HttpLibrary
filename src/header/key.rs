@@ -71,4 +71,8 @@ mod tests {
     fn refuse_whitespace() {
         assert!(Key::new("      abc         ").is_err())
     }
+    #[test]
+    fn refuse_whitespace_trailing() {
+        assert!(Key::new("abc ").is_err());
+    }
 }
