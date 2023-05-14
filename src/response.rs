@@ -31,7 +31,9 @@ impl<R: ResponseType> Code for R {
     }
     fn standard_phrase(&self) -> &'static str {
         // Always valid since response_type is guaranteed to be valid
-        standard_phrase(self.response_type() as u16).unwrap()
+        standard_phrase(self.response_type() as u16).expect(
+            "the dev has forgotten a case for the standard phrases, please report this"
+        )
     }
 }
 
