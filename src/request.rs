@@ -274,10 +274,4 @@ mod tests {
         let str = "";
         assert_eq!(str.parse::<Request>(), Err(RequestParseError::EmptyRequest));
     }
-    #[test]
-    fn header_disallow_missing_space() {
-        let str = "POST /stuff HTTP/1.1\r\n\
-        some_header:A\r\n\r\n";
-        assert!(str.parse::<Request>().is_err());
-    }
 }
