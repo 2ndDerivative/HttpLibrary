@@ -173,6 +173,8 @@ impl FromStr for Request {
     type Err = RequestParseError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut lines = s.lines();
+        // Starting with a CRLF should be ignored and skipped
+        // according to specification HTTP/1.1 paragraph 2.2
         let mut firstline = match lines.next() {
             Some("") => lines.next().ok_or(RequestParseError::EmptyRequest)?,
             None => {return Err(RequestParseError::EmptyRequest)}
