@@ -14,14 +14,14 @@ pub enum HeaderError {
     Key(KeyError),
     Value(ValueError),
     MissingKey,
-    MissingValue
+    MissingValue,
 }
 impl Error for HeaderError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
             Self::Key(e) => Some(e),
             Self::Value(e) => Some(e),
-            Self::MissingValue | Self::MissingKey => None
+            Self::MissingValue | Self::MissingKey => None,
         }
     }
 }
@@ -31,7 +31,7 @@ impl Display for HeaderError {
             Self::Key(e) => ("Key", e.to_string()),
             Self::Value(e) => ("Value", e.to_string()),
             Self::MissingKey => ("Header", "missing key".to_string()),
-            Self::MissingValue => ("Header", "missing value".to_string())
+            Self::MissingValue => ("Header", "missing value".to_string()),
         };
         write!(f, "{v}: {error}")
     }
@@ -53,16 +53,20 @@ impl From<ValueError> for HeaderError {
 pub enum KeyError {
     NonAsciiChars,
     EmptyString,
-    HeaderNameWhitespace
+    HeaderNameWhitespace,
 }
-impl Error for KeyError{}
+impl Error for KeyError {}
 impl Display for KeyError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "{}", match self {
-            Self::NonAsciiChars => "non-ascii chars",
-            Self::EmptyString => "empty key",
-            Self::HeaderNameWhitespace => "leading or trailing whitespace",
-        })
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::NonAsciiChars => "non-ascii chars",
+                Self::EmptyString => "empty key",
+                Self::HeaderNameWhitespace => "leading or trailing whitespace",
+            }
+        )
     }
 }
 
@@ -72,13 +76,17 @@ pub enum ValueError {
     EmptyString,
     IllegalChars,
 }
-impl Error for ValueError{}
+impl Error for ValueError {}
 impl Display for ValueError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "{}", match self {
-            Self::NonAsciiChars => "non-ascii chars",
-            Self::EmptyString => "empty value",
-            Self::IllegalChars => "illegal characters (\\r, \\n or \\0)",
-        })
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::NonAsciiChars => "non-ascii chars",
+                Self::EmptyString => "empty value",
+                Self::IllegalChars => "illegal characters (\\r, \\n or \\0)",
+            }
+        )
     }
 }

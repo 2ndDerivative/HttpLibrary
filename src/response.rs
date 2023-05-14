@@ -1,20 +1,23 @@
 use std::{
     collections::{hash_map::Entry, HashMap},
     error::Error,
-    marker::PhantomData,
     fmt::{Display, Formatter, Result as FmtResult},
+    marker::PhantomData,
     string::FromUtf8Error,
 };
 
 use crate::{
     header::{key::Key, value::Value, HeaderError},
-    Version
+    Version,
 };
 
 pub trait ResponseCode {
-    fn code(&self) -> u16;
-    fn standard_phrase(&self) -> &'static str{
-        standard_phrase(self.code()).unwrap()
+    fn response_type(&self) -> Response;
+    fn code(&self) -> u16 {
+        self.response_type() as u16
+    }
+    fn standard_phrase(&self) -> &'static str {
+        standard_phrase(self.response_type() as u16).unwrap()
     }
 }
 
@@ -27,11 +30,13 @@ impl<T: IntoBytes + ResponseCode> CanBePrinted for T {}
 
 trait CanBePrinted: IntoBytes + ResponseCode {
     fn response_header(&self) -> String {
-        format!("HTTP/{}.{} {} {}", 
+        format!(
+            "HTTP/{}.{} {} {}",
             self.max_version().0,
             self.max_version().1,
             self.code(),
-            self.standard_phrase())
+            self.standard_phrase()
+        )
     }
 }
 
@@ -39,7 +44,7 @@ trait CanBePrinted: IntoBytes + ResponseCode {
 /// Standard HTTP Response struct
 /// write in raw bytes using `into_bytes()`, as the HTTP standard does not
 /// require valid UTF response bodies.
-/// 
+///
 /// # Examples
 /// ```
 /// # use heggemann_http::{
@@ -58,18 +63,18 @@ trait CanBePrinted: IntoBytes + ResponseCode {
 /// # Ok(())
 /// # }
 /// ```
-pub enum Response{
+pub enum Response {
     /// ## 100 CONTINUE
     /// The server has received the request headers and the client should proceed to send
     /// the request body (if a body needs to be sent).
-    /// 
+    ///
     /// Usually returned after receiving an `expect: 100-continue` header from the client.
     Continue = 100,
     /// ## 101 SWITCHING PROTOCOLS
     /// The server agrees to switching protocols after a request asking for it.
     SwitchingProtocols = 101,
     /// ## 102 PROCESSING
-    /// WebDAV request may take a long time. This indicates a long time before the answer is to be 
+    /// WebDAV request may take a long time. This indicates a long time before the answer is to be
     /// expected by the client.
     #[deprecated]
     Processing = 102,
@@ -95,24 +100,24 @@ pub enum Response{
     /// Successful on a method/resource with no content.
     NoContent = 204,
     /// ## 205 RESET CONTENT
-    /// The server processed the request and asks the user for resetting their view. No content 
+    /// The server processed the request and asks the user for resetting their view. No content
     /// is returned.
     ResetContent = 205,
     /// ## 206 PARTIAL CONTENT
     /// The server is delivering a part of the resource **because of a client range header**.
-    /// The range header is used to resume interrupted downloads or split a download into multiple 
+    /// The range header is used to resume interrupted downloads or split a download into multiple
     /// parallel streams.
     PartialContent = 206,
     /// ## 207 MULTI-STATUS
-    /// The message body is an `XML`-message by default and can contain a multitude of response 
+    /// The message body is an `XML`-message by default and can contain a multitude of response
     /// codes depending on the subrequests made.
     MultiStatus = 207,
     /// ## 208 ALREADY REPORTED
-    /// The members of a DAV binding have already been enumerated in a preceding part of the 
+    /// The members of a DAV binding have already been enumerated in a preceding part of the
     /// (multistatus) response, and are not being repeated.
     AlreadyReported = 208,
     /// ## 226 IM USED
-    /// The server has fulfilled a request for the resource, and the response is a representation 
+    /// The server has fulfilled a request for the resource, and the response is a representation
     /// of the result of one or more instance-manipulations applied to the current instance.
     ImUsed = 226,
 
@@ -127,22 +132,22 @@ pub enum Response{
     /// ### Previously: "Moved Temporarily"
     /// The server tells the client to move to another URL. In HTTP/1.0, the client was supposed
     /// to do it with the same method, but most browsers change to get when receiving a `302`.
-    /// To change this behaviour, [303][Response::SeeOther] and [307][Response::TemporaryRedirect] 
+    /// To change this behaviour, [303][Response::SeeOther] and [307][Response::TemporaryRedirect]
     /// may be used.
     Found = 302,
     /// ## 303 SEE OTHER
     /// The response to this request can be found under another URI using [GET][crate::request::RequestMethod::Get]. When received
-    /// in response to [POST][crate::request::RequestMethod::Post], [PUT][crate::request::RequestMethod::Put] or [DELETE][crate::request::RequestMethod::Delete], the client should presume that the server has 
+    /// in response to [POST][crate::request::RequestMethod::Post], [PUT][crate::request::RequestMethod::Put] or [DELETE][crate::request::RequestMethod::Delete], the client should presume that the server has
     /// received the data and should issue a new [GET][crate::request::RequestMethod::Get] request to the given URI.
     SeeOther = 303,
     /// ## 304 NOT MODIFIED
-    /// Indicates that the resource has not been modified since the version specified by 
-    /// the request headers `If-Modified-Since` or `If-None-Match`. In such case, there 
+    /// Indicates that the resource has not been modified since the version specified by
+    /// the request headers `If-Modified-Since` or `If-None-Match`. In such case, there
     /// is no need to retransmit the resource since the client still has a previously-
     /// downloaded copy.
     NotModified = 304,
     /// ## 305 USE PROXY
-    /// The requested resource is available only through a proxy, the address for which is 
+    /// The requested resource is available only through a proxy, the address for which is
     /// provided in the response. For security reasons, many HTTP clients do not obey this
     /// status code.
     UseProxy = 305,
@@ -197,7 +202,7 @@ pub enum Response{
     MethodNotAllowed = 405,
     /// ## 406 NOT ACCEPTABLE
     /// The requested resource is capable of generating only content not acceptable according
-    /// to the Accept headers sent by the client. 
+    /// to the Accept headers sent by the client.
     NotAcceptable = 406,
     /// ## 407 PROXY AUTHENTICATION REQUIRED
     /// The client must first authenticate itself with the proxy.
@@ -216,11 +221,11 @@ pub enum Response{
     /// wished, [404][Response::NotFound] should be used.
     Gone = 410,
     /// ## 411 LENGTH REQUIRED
-    /// The request did not specify the length of its content, which is required by the requested 
+    /// The request did not specify the length of its content, which is required by the requested
     /// resource.
     LengthRequired = 411,
     /// ## 412 PRECONDITON FAILED
-    /// The server does not meet one of the preconditions that the requester put on the request 
+    /// The server does not meet one of the preconditions that the requester put on the request
     /// header fields.
     PreconditonFailed = 412,
     /// ## 413 PAYLOAD TOO LARGE
@@ -245,7 +250,7 @@ pub enum Response{
     /// A joke response code.
     ImATeapot = 418,
     /// ## 421 MISDIRECTED REQUEST
-    /// The request was directed at a server that is not able to produce a response 
+    /// The request was directed at a server that is not able to produce a response
     /// (for example because of connection reuse).
     MisdirectedRequest = 421,
     /// ## 422 UNPROCESSABLE ENTITY
@@ -258,49 +263,49 @@ pub enum Response{
     /// The request failed because it depended on another request and that request failed.
     FailedDependency = 424,
     /// ## 425 TOO EARLY
-    /// Indicates that the server is unwilling to risk processing a request that might 
+    /// Indicates that the server is unwilling to risk processing a request that might
     /// be replayed.
     TooEarly = 425,
     /// ## 426 UPGRADE REQUIRED
     /// The client should switch to a different protocol given in the `Upgrade` header field.
     UpgradeRequired = 426,
     /// ## 428 PRECONDITION REQUIRED
-    /// The origin server requires the request to be conditional. Intended to prevent the 
-    /// 'lost update' problem, where a client [GET][crate::request::RequestMethod::Get]s a resource's state, modifies it, and 
-    /// [PUT][crate::request::RequestMethod::Put]s it back to the server, when meanwhile a third party has modified the state 
+    /// The origin server requires the request to be conditional. Intended to prevent the
+    /// 'lost update' problem, where a client [GET][crate::request::RequestMethod::Get]s a resource's state, modifies it, and
+    /// [PUT][crate::request::RequestMethod::Put]s it back to the server, when meanwhile a third party has modified the state
     /// on the server, leading to a conflict.
     PreconditionRequired = 428,
     /// ## 429 TOO MANY REQUESTS
-    /// The user has sent too many requests in a given amount of time. Intended for use 
+    /// The user has sent too many requests in a given amount of time. Intended for use
     /// with rate-limiting schemes.
     TooManyRequests = 429,
     /// ## 431 REQUEST HEADER FIELDS TOO LARGE
-    /// The server is unwilling to process the request because either an individual 
+    /// The server is unwilling to process the request because either an individual
     /// header field, or all the header fields collectively, are too large.
     RequestHeaderFieldsTooLarge = 431,
     /// ## 451 UNAVAILABLE FOR LEGAL REASONS
-    /// A server operator has received a legal demand to deny access to a resource 
+    /// A server operator has received a legal demand to deny access to a resource
     /// or to a set of resources that includes the requested resource.
     UnavailableForLegalReasons = 451,
 
     /// ## 500 SERVER ERROR
-    /// A generic error message, given when an unexpected condition was encountered 
+    /// A generic error message, given when an unexpected condition was encountered
     /// and no more specific message is suitable.
     ServerError = 500,
     /// ## 501 NOT IMPLEMENTED
-    /// The server either does not recognize the request method, or it lacks the 
+    /// The server either does not recognize the request method, or it lacks the
     /// ability to fulfil the request.
     NotImplemented = 501,
     /// ## 502 BAD GATEWAY
-    /// The server was acting as a gateway or proxy and received an invalid response 
+    /// The server was acting as a gateway or proxy and received an invalid response
     /// from the upstream server.
     BadGateway = 502,
     /// ## 503 SERVICE UNAVAILABLE
-    /// The server cannot handle the request (because it is overloaded or down for 
+    /// The server cannot handle the request (because it is overloaded or down for
     /// maintenance).
     ServiceUnavailable = 503,
     /// ## 504 GATEWAY TIMEOUT
-    /// The server was acting as a gateway or proxy and did not receive a timely 
+    /// The server was acting as a gateway or proxy and did not receive a timely
     /// response from the upstream server.
     GatewayTimeout = 504,
     /// ## 505 HTTP VERSION NOT SUPPORTED
@@ -313,14 +318,14 @@ pub enum Response{
     /// The server is unable to store the representation needed to complete the request.
     InsufficientStorage = 507,
     /// ## 508 LOOP DETECTED
-    /// The server detected an infinite loop while processing the request (sent instead 
+    /// The server detected an infinite loop while processing the request (sent instead
     /// of [208 Already Reported][Response::AlreadyReported]).
     LoopDetected = 508,
     /// ## 510 NOT EXTENDED
     /// Further extensions to the request are required for the server to fulfil it.
     NotExtended = 510,
     /// ## 511 NETWORK AUTHENTICATION REQUIRED
-    /// The client needs to authenticate to gain network access. Intended for use by 
+    /// The client needs to authenticate to gain network access. Intended for use by
     /// intercepting proxies used to control access to the network
     NetworkAuthenticationRequired = 511,
 }
@@ -337,21 +342,25 @@ impl Response {
             headers: HashMap::new(),
         }
     }
-    pub fn header<K: AsRef<str>, V: AsRef<str>>(self, k: K, v: V) -> Result<ResponseBuilder<Incomplete>, HeaderError> {
+    pub fn header<K: AsRef<str>, V: AsRef<str>>(
+        self,
+        k: K,
+        v: V,
+    ) -> Result<ResponseBuilder<Incomplete>, HeaderError> {
         let (k, v) = (k.as_ref(), v.as_ref());
         let headers = HashMap::from([(Key::new(k)?, Value::new(v)?)]);
         Ok(ResponseBuilder {
             response: self,
             marker: PhantomData,
             body: vec![],
-            headers
+            headers,
         })
     }
 }
 
 impl ResponseCode for Response {
-    fn code(&self) -> u16 {
-        self.clone() as u16
+    fn response_type(&self) -> Response {
+        self.clone()
     }
 }
 
@@ -360,7 +369,7 @@ impl IntoBytes for Response {
         String::from(self).into()
     }
     fn max_version(&self) -> Version {
-        Version (1, 0)
+        Version(1, 0)
     }
 }
 
@@ -391,7 +400,7 @@ impl TryFrom<u16> for Response {
             101 => Ok(Self::SwitchingProtocols),
             102 => Ok(Self::Processing),
             103 => Ok(Self::EarlyHints),
-        
+
             200 => Ok(Self::Ok),
             201 => Ok(Self::Created),
             202 => Ok(Self::Accepted),
@@ -402,7 +411,7 @@ impl TryFrom<u16> for Response {
             207 => Ok(Self::MultiStatus),
             208 => Ok(Self::AlreadyReported),
             226 => Ok(Self::ImUsed),
-        
+
             300 => Ok(Self::MultipleChoices),
             301 => Ok(Self::MovedPermanently),
             302 => Ok(Self::Found),
@@ -412,7 +421,7 @@ impl TryFrom<u16> for Response {
             306 => Ok(Self::SwitchProxy),
             307 => Ok(Self::TemporaryRedirect),
             308 => Ok(Self::PermanentRedirect),
-        
+
             400 => Ok(Self::BadRequest),
             401 => Ok(Self::Unauthorized),
             402 => Ok(Self::PaymentRequired),
@@ -442,7 +451,7 @@ impl TryFrom<u16> for Response {
             429 => Ok(Self::TooManyRequests),
             431 => Ok(Self::RequestHeaderFieldsTooLarge),
             451 => Ok(Self::UnavailableForLegalReasons),
-        
+
             500 => Ok(Self::ServerError),
             501 => Ok(Self::NotImplemented),
             502 => Ok(Self::BadGateway),
@@ -454,7 +463,7 @@ impl TryFrom<u16> for Response {
             508 => Ok(Self::LoopDetected),
             510 => Ok(Self::NotExtended),
             511 => Ok(Self::NetworkAuthenticationRequired),
-            _ => Err(InvalidCode)
+            _ => Err(InvalidCode),
         }
     }
 }
@@ -477,13 +486,13 @@ pub struct ResponseBuilder<S: State> {
 }
 
 impl<S: State> ResponseCode for ResponseBuilder<S> {
-    fn code(&self) -> u16 {
-        self.response.code()
+    fn response_type(&self) -> Response {
+        self.response.clone()
     }
 }
 
 impl ResponseBuilder<Incomplete> {
-    pub fn body<B: Into<Vec<u8>>>(self , body: B) -> ResponseBuilder<Complete> {
+    pub fn body<B: Into<Vec<u8>>>(self, body: B) -> ResponseBuilder<Complete> {
         let body = body.into();
         ResponseBuilder {
             response: self.response,
@@ -492,11 +501,19 @@ impl ResponseBuilder<Incomplete> {
             headers: self.headers,
         }
     }
-    pub fn header<K: AsRef<str>, V: AsRef<str>>(mut self, k: K, v: V) -> Result<ResponseBuilder<Incomplete>, HeaderError> {
+    pub fn header<K: AsRef<str>, V: AsRef<str>>(
+        mut self,
+        k: K,
+        v: V,
+    ) -> Result<ResponseBuilder<Incomplete>, HeaderError> {
         let k = Key::new(k.as_ref())?;
         match self.headers.entry(k) {
-            Entry::Occupied(mut e) => {e.get_mut().append(v.as_ref())?;},
-            Entry::Vacant(e) => {e.insert(Value::new(v.as_ref())?);},
+            Entry::Occupied(mut e) => {
+                e.get_mut().append(v.as_ref())?;
+            }
+            Entry::Vacant(e) => {
+                e.insert(Value::new(v.as_ref())?);
+            }
         }
         Ok(self)
     }
@@ -505,15 +522,11 @@ impl ResponseBuilder<Incomplete> {
 impl<S: State> IntoBytes for ResponseBuilder<S> {
     fn into_bytes(self) -> Vec<u8> {
         [
-            std::iter::once(
-                self.response_header()
-            ).chain(
-                self.headers
-                    .into_iter()
-                    .map(|(k, v)| format!("{k}:{v}"))
-            )
-            .collect::<Vec<String>>()
-            .join("\r\n").into_bytes(),
+            std::iter::once(self.response_header())
+                .chain(self.headers.into_iter().map(|(k, v)| format!("{k}:{v}")))
+                .collect::<Vec<String>>()
+                .join("\r\n")
+                .into_bytes(),
             "\r\n\r\n".into(),
             self.body,
         ]
@@ -522,9 +535,9 @@ impl<S: State> IntoBytes for ResponseBuilder<S> {
     fn max_version(&self) -> Version {
         let k = Key::new("host").unwrap();
         if self.headers.contains_key(&k) {
-            Version(1,1)
+            Version(1, 1)
         } else {
-            Version(1,0)
+            Version(1, 0)
         }
     }
 }
@@ -544,16 +557,15 @@ impl<S: State> From<ResponseBuilder<S>> for Vec<u8> {
 
 impl<S: State> Display for ResponseBuilder<S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "{}\r\n\r\n{}",
-            std::iter::once(
-                self.response_header()
-            ).chain( 
-                self.headers.iter()
-                    .map(|(k, v)| format!("{k}:{v}"))
-            ).collect::<Vec<_>>().join("\r\n"),
-            String::from_utf8(self.body.clone()).unwrap_or_else(|_| {
-                format!("{:?}", self.body)
-            }))
+        write!(
+            f,
+            "{}\r\n\r\n{}",
+            std::iter::once(self.response_header())
+                .chain(self.headers.iter().map(|(k, v)| format!("{k}:{v}")))
+                .collect::<Vec<_>>()
+                .join("\r\n"),
+            String::from_utf8(self.body.clone()).unwrap_or_else(|_| { format!("{:?}", self.body) })
+        )
     }
 }
 
@@ -660,20 +672,29 @@ mod tests {
     }
     #[test]
     fn response_header_bytes() {
-        let result = Response::Ok.header("hi", "its me").unwrap().body("someBODY");
-        assert_eq!(result.into_bytes(), b"HTTP/1.0 200 OK\r\nhi:its me\r\n\r\nsomeBODY");
+        let result = Response::Ok
+            .header("hi", "its me")
+            .unwrap()
+            .body("someBODY");
+        assert_eq!(
+            result.into_bytes(),
+            b"HTTP/1.0 200 OK\r\nhi:its me\r\n\r\nsomeBODY"
+        );
     }
     #[test]
     // Header fields with different keys may appear in arbitrary order
     fn reponse_multiple_headers() {
         let result = Response::Ok
-            .header("hey", "man").unwrap()
-            .header("how", "are you").unwrap()
+            .header("hey", "man")
+            .unwrap()
+            .header("how", "are you")
+            .unwrap()
             .body("someBODY");
-        assert!(result.clone().into_bytes()
-            == b"HTTP/1.0 200 OK\r\nhey:man\r\nhow:are you\r\n\r\nsomeBODY"
-            || result.into_bytes()
-            == b"HTTP/1.0 200 OK\r\nhow:are you\r\nhey:man\r\n\r\nsomeBODY"
+        assert!(
+            result.clone().into_bytes()
+                == b"HTTP/1.0 200 OK\r\nhey:man\r\nhow:are you\r\n\r\nsomeBODY"
+                || result.into_bytes()
+                    == b"HTTP/1.0 200 OK\r\nhow:are you\r\nhey:man\r\n\r\nsomeBODY"
         )
     }
     #[test]
@@ -715,34 +736,34 @@ mod tests {
         assert!(Response::Ok.header("", "stuff").is_err());
     }
     #[test]
-    fn try_into_string() -> Result<(), Box<dyn std::error::Error>>{
+    fn try_into_string() -> Result<(), Box<dyn std::error::Error>> {
         let response = Response::new(404)?;
-        let response = response
-            .header("your", "mom")?
-            .body("is great");
+        let response = response.header("your", "mom")?.body("is great");
         let string: String = response.try_into()?;
-        assert_eq!(string,
+        assert_eq!(
+            string,
             "HTTP/1.0 404 NOT FOUND\r\n\
             your:mom\r\n\r\n\
-            is great".to_owned());
+            is great"
+                .to_owned()
+        );
         Ok(())
     }
     #[test]
     fn complete_correct_string() {
-        let test_string ="HTTP/1.0 400 BAD REQUEST\r\n\
-        header:stuff\r\n\r\n".to_owned();
-        let raw = Response::BadRequest
-            .header("header","stuff")
-            .unwrap();
+        let test_string = "HTTP/1.0 400 BAD REQUEST\r\n\
+        header:stuff\r\n\r\n"
+            .to_owned();
+        let raw = Response::BadRequest.header("header", "stuff").unwrap();
         assert_eq!(raw.to_string(), test_string);
         assert_eq!(raw.body("").to_string(), test_string)
     }
     #[test]
     fn print_invalid_utf8() {
         let test_string = "HTTP/1.0 400 BAD REQUEST\r\n\r\n\
-        [14, 147, 94]".to_owned();
-        let response = Response::BadRequest
-            .body(vec![14, 147, 94]);
+        [14, 147, 94]"
+            .to_owned();
+        let response = Response::BadRequest.body(vec![14, 147, 94]);
         assert_eq!(test_string, response.to_string());
     }
     #[test]
@@ -753,13 +774,12 @@ mod tests {
     }
     #[test]
     fn version_host_key() {
-        let res = Response::Ok
-            .header("Host", "github.com").unwrap();
-        assert_eq!(res.max_version(), Version(1,1));
+        let res = Response::Ok.header("Host", "github.com").unwrap();
+        assert_eq!(res.max_version(), Version(1, 1));
     }
     #[test]
     fn version_no_host_key() {
         let res = Response::Ok;
-        assert_eq!(res.max_version(), Version(1,0));
+        assert_eq!(res.max_version(), Version(1, 0));
     }
 }

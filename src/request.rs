@@ -12,9 +12,9 @@ use crate::{
 
 #[derive(Debug, PartialEq)]
 /// The overall HTTP request struct.
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```
 /// # use heggemann_http::{
 /// #    Request,
@@ -22,23 +22,23 @@ use crate::{
 /// #    Version,
 /// #    header::Value,
 /// # };
-/// let input = 
+/// let input =
 /// "GET /my/path HTTP/1.1\r\n\
 /// Content-Length: 50\r\n\
 /// Authorization: I have none\r\n
 /// \r\n
 /// This is somebody's body";
 /// let request = input.parse::<Request>().unwrap();
-/// 
+///
 /// assert_eq!(request.method, RequestMethod::Get);
 /// assert_eq!(request.path, String::from("/my/path"));
-/// 
+///
 /// assert_eq!(request.version, Version (1, 1));
-/// 
+///
 /// assert_eq!(request.headers.get("content-length").unwrap(), "50");
 /// assert_eq!(request.headers.get("authorization").unwrap(), "I have none");
 /// ```
-/// 
+///
 /// Header keys have to be compared in lowercase. (Work in progress)
 pub struct Request {
     pub method: RequestMethod,
@@ -49,7 +49,7 @@ pub struct Request {
 
 #[derive(Debug, PartialEq)]
 /// Enumeration of the standardized Request methods.
-/// 
+///
 /// Safety and Idempotency defined by the HTTP/1.1 standard.
 pub enum RequestMethod {
     Get,
@@ -73,7 +73,7 @@ impl RequestMethod {
     /// This includes all **safe** methods as well as `Put` and `Delete`,
     /// which are both supposed to represent only shifting between a
     /// resource existing and non existing, not incrementing or decrementing
-    /// some value. 
+    /// some value.
     pub fn is_idempotent(&self) -> bool {
         self.is_safe() || matches!(self, Self::Put | Self::Delete)
     }
@@ -131,7 +131,7 @@ pub enum RequestParseError {
     NoPath,
     /// The request lacks the standardized version HTTP word
     NoHttpWord,
-    /// The method has not been recognized. A server having this error should 
+    /// The method has not been recognized. A server having this error should
     /// return a [501][crate::Response::NotImplemented]
     MethodNotRecognized(MethodParseError),
     /// A header is not compliant with header syntax
@@ -231,7 +231,7 @@ mod tests {
             request,
             Request {
                 method: RequestMethod::Get,
-                version: Version (1, 1),
+                version: Version(1, 1),
                 ..
             }
         ))
@@ -242,7 +242,7 @@ mod tests {
         assert!(matches!(
             request,
             Request {
-                version: Version (3, 0),
+                version: Version(3, 0),
                 ..
             }
         ))

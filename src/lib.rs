@@ -1,6 +1,4 @@
-use std::fmt::{
-    Display, Formatter, Result as FmtResult
-};
+use std::fmt::{Display, Formatter, Result as FmtResult};
 
 pub mod header;
 pub mod request;
@@ -9,7 +7,7 @@ pub mod response;
 pub use self::{
     request::{Request, RequestMethod},
     // Traits have to be reexported due to compatibility
-    response::{Response, IntoBytes, ResponseCode},
+    response::{IntoBytes, Response, ResponseCode},
 };
 
 #[derive(PartialEq, Debug)]

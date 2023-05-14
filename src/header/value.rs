@@ -23,13 +23,13 @@ impl Value {
         } else if s.contains(['\r', '\n', '\0']) {
             Err(ValueError::IllegalChars)
         } else {
-            Ok(Self (s.to_string()))
+            Ok(Self(s.to_string()))
         }
     }
     /// Concatenates the current value with a new value with the same key
     /// According to the standard multiple headers like
     /// `head: foo` and `head: bar` are supposed to be parsed like
-    /// a single `head: foo,bar`. 
+    /// a single `head: foo,bar`.
     pub(crate) fn append<S: AsRef<str>>(&mut self, s: S) -> Result<(), ValueError> {
         let cleaned = Self::new(s)?;
         self.0.push_str(&format!(",{}", cleaned.0));

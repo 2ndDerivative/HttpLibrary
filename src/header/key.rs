@@ -11,14 +11,14 @@ use super::KeyError;
 /// - Can't contain the empty string.
 /// - Equals with any case of the same characters.
 /// - cannot have leading or trailing whitespace
-pub struct Key (String);
+pub struct Key(String);
 impl Key {
     /// Verifies compliance with the HTTP/1.1 header
     /// standard, ensuring that [Key] always matches it.
     pub fn new<S: AsRef<str>>(s: S) -> Result<Self, KeyError> {
         let s = s.as_ref();
         if !s.is_ascii() {
-            Err(KeyError::NonAsciiChars) 
+            Err(KeyError::NonAsciiChars)
         } else if s.is_empty() {
             Err(KeyError::EmptyString)
         } else if s.trim() != s {
