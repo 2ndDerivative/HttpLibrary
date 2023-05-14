@@ -11,24 +11,39 @@ use crate::{
     Version,
 };
 
-pub trait ResponseCode {
+
+/// Allows an associated Response type (`Response` object) to be defined
+pub trait ResponseType {
     fn response_type(&self) -> Response;
+}
+
+/// Sets valid codes and standard phrases for ReponseType
+/// 
+/// **Non-implementable**
+pub trait Code: ResponseType {
+    fn code(&self) -> u16;
+    fn standard_phrase(&self) -> &'static str;
+}
+
+impl<R: ResponseType> Code for R {
     fn code(&self) -> u16 {
         self.response_type() as u16
     }
     fn standard_phrase(&self) -> &'static str {
+        // Always valid since response_type is guaranteed to be valid
         standard_phrase(self.response_type() as u16).unwrap()
     }
 }
 
+/// This object can be turned into a valid HTTP byte stream
 pub trait IntoBytes {
     fn into_bytes(self) -> Vec<u8>;
     fn max_version(&self) -> Version;
 }
 
-impl<T: IntoBytes + ResponseCode> FirstLine for T {}
+impl<T: IntoBytes + Code> FirstLine for T {}
 
-trait FirstLine: IntoBytes + ResponseCode {
+trait FirstLine: IntoBytes + Code {
     fn first_line(&self) -> String {
         format!(
             "HTTP/{}.{} {} {}",
@@ -358,7 +373,7 @@ impl Response {
     }
 }
 
-impl ResponseCode for Response {
+impl ResponseType for Response {
     fn response_type(&self) -> Response {
         self.clone()
     }
@@ -485,7 +500,7 @@ pub struct ResponseBuilder<S: State> {
     headers: HashMap<Key, Value>,
 }
 
-impl<S: State> ResponseCode for ResponseBuilder<S> {
+impl<S: State> ResponseType for ResponseBuilder<S> {
     fn response_type(&self) -> Response {
         self.response.clone()
     }
