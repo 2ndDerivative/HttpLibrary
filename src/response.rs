@@ -646,7 +646,6 @@ pub trait State {}
 
 #[cfg(test)]
 mod tests {
-    use crate::response::Response;
     use super::*;
 
     #[test]
