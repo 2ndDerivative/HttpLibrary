@@ -53,10 +53,10 @@ pub trait IntoBytes {
     fn max_version(&self) -> Version;
 }
 
-impl<T: IntoBytes + Code> FirstLine for T {}
+impl<T: IntoBytes + Code> StartLine for T {}
 
-trait FirstLine: IntoBytes + Code {
-    fn first_line(&self) -> String {
+trait StartLine: IntoBytes + Code {
+    fn start_line(&self) -> String {
         format!(
             "HTTP/{}.{} {} {}",
             self.max_version().0,
@@ -412,7 +412,7 @@ impl From<Response> for String {
 
 impl Display for Response {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "{}\r\n\r\n", self.first_line())
+        write!(f, "{}\r\n\r\n", self.start_line())
     }
 }
 
@@ -553,7 +553,7 @@ impl ResponseBuilder<Incomplete> {
 impl<S: State> IntoBytes for ResponseBuilder<S> {
     fn into_bytes(self) -> Vec<u8> {
         [
-            std::iter::once(self.first_line())
+            std::iter::once(self.start_line())
                 .chain(self.headers.into_iter().map(|(k, v)| format!("{k}:{v}")))
                 .collect::<Vec<String>>()
                 .join("\r\n")
@@ -591,7 +591,7 @@ impl<S: State> Display for ResponseBuilder<S> {
         write!(
             f,
             "{}\r\n\r\n{}",
-            std::iter::once(self.first_line())
+            std::iter::once(self.start_line())
                 .chain(self.headers.iter().map(|(k, v)| format!("{k}:{v}")))
                 .collect::<Vec<_>>()
                 .join("\r\n"),
