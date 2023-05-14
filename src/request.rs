@@ -173,10 +173,11 @@ impl FromStr for Request {
     type Err = RequestParseError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut lines = s.lines();
-        let mut firstline = lines
-            .next()
-            .ok_or(RequestParseError::EmptyRequest)?
-            .split_whitespace();
+        let mut firstline = match lines.next() {
+            Some("") => lines.next().ok_or(RequestParseError::EmptyRequest)?,
+            None => {return Err(RequestParseError::EmptyRequest)}
+            Some(x) => x
+        }.split_whitespace();
         let method_word = firstline.next().ok_or(RequestParseError::NoMethod)?;
         let path = firstline
             .next()
@@ -261,5 +262,17 @@ mod tests {
             .parse::<Request>()
             .unwrap();
         assert_eq!(request.headers.get("some_header").unwrap(), "A,B,C");
+    }
+    #[test]
+    fn ignore_first_empty_line() {
+        let str = "\r\nPOST /stuff HTTP/1.1\r\n
+        Some_header: A\r\n\r\n";
+        let rq = str.parse::<Request>();
+        assert!(rq.is_ok());
+    }
+    #[test]
+    fn fail_empty_line() {
+        let str = "";
+        assert_eq!(str.parse::<Request>(), Err(RequestParseError::EmptyRequest));
     }
 }
