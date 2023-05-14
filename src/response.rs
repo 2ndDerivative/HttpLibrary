@@ -18,14 +18,14 @@ pub trait ResponseCode {
     }
 }
 
-pub trait Byteable {
+pub trait IntoBytes {
     fn into_bytes(self) -> Vec<u8>;
     fn max_version(&self) -> Version;
 }
 
-impl<T: Byteable + ResponseCode> CanBePrinted for T {}
+impl<T: IntoBytes + ResponseCode> CanBePrinted for T {}
 
-trait CanBePrinted: Byteable + ResponseCode {
+trait CanBePrinted: IntoBytes + ResponseCode {
     fn response_header(&self) -> String {
         format!("HTTP/{}.{} {} {}", 
             self.max_version().0,
@@ -355,7 +355,7 @@ impl ResponseCode for Response {
     }
 }
 
-impl Byteable for Response {
+impl IntoBytes for Response {
     fn into_bytes(self) -> Vec<u8> {
         String::from(self).into()
     }
@@ -502,7 +502,7 @@ impl ResponseBuilder<Incomplete> {
     }
 }
 
-impl<S: State> Byteable for ResponseBuilder<S> {
+impl<S: State> IntoBytes for ResponseBuilder<S> {
     fn into_bytes(self) -> Vec<u8> {
         [
             std::iter::once(
