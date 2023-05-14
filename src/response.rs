@@ -49,7 +49,7 @@ trait CanBePrinted: IntoBytes + ResponseCode {
 /// ```
 /// # use heggemann_http::{
 /// #     Response,
-/// #     Byteable
+/// #     IntoBytes
 /// # };
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let res = dbg!(Response::Ok
