@@ -200,9 +200,9 @@ impl FromStr for Request {
                 let Ok(mut h) = h else {
                     return h
                 };
-                let mut parts = new.split(':');
-                let key = Key::new(parts.next().ok_or(HeaderError::MissingKey)?)?;
-                let value = parts.next().ok_or(HeaderError::MissingValue)?;
+                let (key, value) = new.split_once(':')
+                    .ok_or(HeaderError::NoSeparator)?;
+                let key = Key::new(key)?;
 
                 match h.entry(key) {
                     Entry::Occupied(mut x) => x.get_mut().append(value)?,
@@ -267,7 +267,7 @@ mod tests {
     }
     #[test]
     fn ignore_first_empty_line() {
-        let str = "\r\nPOST /stuff HTTP/1.1\r\n
+        let str = "\r\nPOST /stuff HTTP/1.1\r\n\
         Some_header: A\r\n\r\n";
         let rq = str.parse::<Request>();
         assert!(rq.is_ok());
@@ -276,5 +276,11 @@ mod tests {
     fn fail_empty_line() {
         let str = "";
         assert_eq!(str.parse::<Request>(), Err(RequestParseError::EmptyRequest));
+    }
+    #[test]
+    fn header_disallow_missing_space() {
+        let str = "POST /stuff HTTP/1.1\r\n\
+        some_header:A\r\n\r\n";
+        assert!(str.parse::<Request>().is_err());
     }
 }
