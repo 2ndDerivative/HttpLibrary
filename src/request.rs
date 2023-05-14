@@ -199,6 +199,7 @@ impl FromStr for Request {
                 };
                 let (key, value) = new.split_once(':')
                     .ok_or(HeaderError::NoSeparator)?;
+                // This checks for pre-colon whitespace
                 let key = Key::new(key)?;
 
                 match h.entry(key) {
