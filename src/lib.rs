@@ -7,7 +7,7 @@ pub mod response;
 pub use self::{
     request::{Request, RequestMethod},
     // Traits have to be reexported due to compatibility
-    response::{IntoBytes, Response, ResponseType, Code},
+    response::{Code, IntoBytes, Response, ResponseType},
 };
 
 #[derive(PartialEq, Debug)]

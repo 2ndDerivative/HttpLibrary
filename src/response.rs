@@ -11,16 +11,15 @@ use crate::{
     Version,
 };
 
-
 /// Allows an associated Response type (`Response` object) to be defined
 pub trait ResponseType {
     fn response_type(&self) -> Response;
 }
 
 /// Sets valid codes and standard phrases for ReponseType
-/// 
+///
 /// **Non-implementable**
-/// 
+///
 /// # Examples
 /// ```
 /// # use heggemann_http::{Code, Response};
@@ -39,14 +38,13 @@ impl<R: ResponseType> Code for R {
     }
     fn standard_phrase(&self) -> &'static str {
         // Always valid since response_type is guaranteed to be valid
-        standard_phrase(self.response_type() as u16).expect(
-            "the dev has forgotten a case for the standard phrases, please report this"
-        )
+        standard_phrase(self.response_type() as u16)
+            .expect("the dev has forgotten a case for the standard phrases, please report this")
     }
 }
 
 /// This object can be turned into a valid HTTP byte stream
-/// 
+///
 /// `into_bytes()` guarantees proper formatting!
 pub trait IntoBytes {
     fn into_bytes(self) -> Vec<u8>;
@@ -128,8 +126,8 @@ pub enum Response {
     /// Successful on a method/resource with no content.
     NoContent = 204,
     /// ## 205 RESET CONTENT
-    /// The server processed the request and asks the user for resetting their view. 
-    /// 
+    /// The server processed the request and asks the user for resetting their view.
+    ///
     /// **No content is returned.**
     ResetContent = 205,
     /// ## 206 PARTIAL CONTENT
@@ -174,7 +172,7 @@ pub enum Response {
     /// the request headers `If-Modified-Since` or `If-None-Match`. In such case, there
     /// is no need to retransmit the resource since the client still has a previously-
     /// downloaded copy.
-    /// 
+    ///
     /// **does not include body**
     NotModified = 304,
     /// ## 305 USE PROXY

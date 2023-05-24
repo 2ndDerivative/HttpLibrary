@@ -3,17 +3,20 @@ use std::{
     fmt::{Display, Formatter, Result as FMTResult},
 };
 
-use crate::{header::{HeaderError, KeyError}, Response};
+use crate::{
+    header::{HeaderError, KeyError},
+    Response,
+};
 
 #[derive(Debug, PartialEq)]
 /// Collects all Errors that may happen during request parsing.
-/// 
+///
 /// Can include both incompliance with the standard and failed parsing from the servers side.
-/// 
+///
 /// If standard-compliant return codes are intended, the `appropriate_reponse()` method on this
 /// type can return a response that the standard proscribes or strongly recommends for the kind of
 /// semantic or syntactic error that was found.
-/// 
+///
 /// For the case that there is no standardized response, `appropriate_response()` returns an `Option`
 /// that should be handled.
 pub enum RequestParseError {
@@ -37,8 +40,10 @@ impl RequestParseError {
     pub fn appropriate_response(&self) -> Option<Response> {
         match self {
             Self::MethodNotRecognized(_) => Some(Response::NotImplemented),
-            Self::BadHeader(HeaderError::Key(KeyError::ColonWhitespace)) => Some(Response::BadRequest),
-            _ => None
+            Self::BadHeader(HeaderError::Key(KeyError::ColonWhitespace)) => {
+                Some(Response::BadRequest)
+            }
+            _ => None,
         }
     }
 }
@@ -50,8 +55,10 @@ impl Display for RequestParseError {
             "{}",
             match self {
                 Self::EmptyRequest => "empty string".to_owned(),
-                Self::MissingStartlineElements => "request is missing any of method request-target HTTP-version".to_owned(),
-                Self::InvalidHttpWord => "start line does not end with a HTTP/.. version string".to_owned(),
+                Self::MissingStartlineElements =>
+                    "request is missing any of method request-target HTTP-version".to_owned(),
+                Self::InvalidHttpWord =>
+                    "start line does not end with a HTTP/.. version string".to_owned(),
                 Self::MethodNotRecognized(e) => format!("method not recognized: {}", e),
                 Self::BadHeader(_) => "header invalid".to_owned(),
                 Self::InvalidVersion => "version invalid".to_owned(),
@@ -98,8 +105,10 @@ mod tests {
 
     #[test]
     fn appropriate_reponse_method_not_recognized() {
-        assert_eq!(RequestParseError::MethodNotRecognized(
-            MethodParseError::NotAMethod
-        ).appropriate_response(), Some(Response::NotImplemented))
+        assert_eq!(
+            RequestParseError::MethodNotRecognized(MethodParseError::NotAMethod)
+                .appropriate_response(),
+            Some(Response::NotImplemented)
+        )
     }
 }

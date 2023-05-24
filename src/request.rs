@@ -1,6 +1,5 @@
 use std::{
     collections::{hash_map::Entry, HashMap},
-    
     str::FromStr,
 };
 
@@ -38,16 +37,25 @@ pub mod error;
 ///
 /// assert_eq!(request.version, Version (1, 1));
 ///
-/// assert_eq!(request.headers.get("content-length").unwrap(), "50");
-/// assert_eq!(request.headers.get("authorization").unwrap(), "I have none");
+/// assert_eq!(request.get_header("content-length").unwrap(), "50");
+/// assert_eq!(request.get_header("authorization").unwrap(), "I have none");
 /// ```
 ///
 /// Header keys have to be compared in lowercase. (Work in progress)
 pub struct Request {
     pub method: RequestMethod,
     pub path: String,
-    pub headers: HashMap<Key, Value>,
+    headers: HashMap<Key, Value>,
     pub version: Version,
+}
+
+impl Request {
+    pub fn get_header<S: AsRef<str>>(&self, s: S) -> Option<&Value> {
+        self.headers.get(&Key::new(s).ok()?)
+    }
+    pub fn headers(&self) -> Vec<(&Key, &Value)> {
+        self.headers.iter().collect()
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -110,9 +118,11 @@ impl FromStr for Request {
         // according to specification HTTP/1.1 paragraph 2.2
         let firstline = match lines.next() {
             Some("") => lines.next().ok_or(RequestParseError::EmptyRequest)?,
-            None => {return Err(RequestParseError::EmptyRequest)}
-            Some(x) => x
-        }.split_whitespace().collect::<Vec<_>>();
+            None => return Err(RequestParseError::EmptyRequest),
+            Some(x) => x,
+        }
+        .split_whitespace()
+        .collect::<Vec<_>>();
         let (method, path, http_word) = match firstline[..3] {
             [a, b, c] => (a.parse()?, b.to_string(), c),
             _ => return Err(RequestParseError::MissingStartlineElements),
@@ -122,9 +132,7 @@ impl FromStr for Request {
             .strip_prefix("HTTP/")
             .ok_or(RequestParseError::InvalidHttpWord)?
             .split_once('.')
-            .and_then(|(ma, mi)| {
-                Some(Version(ma.parse().ok()?, mi.parse().ok()?))
-            })
+            .and_then(|(ma, mi)| Some(Version(ma.parse().ok()?, mi.parse().ok()?)))
             .ok_or(RequestParseError::InvalidVersion)?;
 
         let headers = lines.take_while(|&l| !l.is_empty()).fold(
@@ -133,8 +141,7 @@ impl FromStr for Request {
                 let Ok(mut h) = h else {
                     return h
                 };
-                let (key, value) = new.split_once(':')
-                    .ok_or(HeaderError::NoSeparator)?;
+                let (key, value) = new.split_once(':').ok_or(HeaderError::NoSeparator)?;
                 // This checks for pre-colon whitespace
                 let key = Key::new(key)?;
 

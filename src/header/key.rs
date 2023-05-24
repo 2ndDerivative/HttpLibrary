@@ -5,7 +5,7 @@ use std::{
 
 use super::KeyError;
 
-#[derive(PartialEq, Debug, Hash, Eq, Clone)]
+#[derive(PartialEq, Hash, Debug, Eq, Clone)]
 /// Struct with all requirements encoded.
 /// Always stores as its ascii lowercase item.
 /// - Can't contain the empty string.

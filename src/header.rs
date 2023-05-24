@@ -13,7 +13,7 @@ pub use value::Value;
 pub enum HeaderError {
     Key(KeyError),
     Value(ValueError),
-    NoSeparator
+    NoSeparator,
 }
 impl Error for HeaderError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
@@ -29,7 +29,10 @@ impl Display for HeaderError {
         let (v, error) = match self {
             Self::Key(e) => ("Key", e.to_string()),
             Self::Value(e) => ("Value", e.to_string()),
-            Self::NoSeparator => ("Header", "missing key-value pair separated by ': '".to_string()),
+            Self::NoSeparator => (
+                "Header",
+                "missing key-value pair separated by ': '".to_string(),
+            ),
         };
         write!(f, "{v}: {error}")
     }
